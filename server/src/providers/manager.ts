@@ -19,6 +19,7 @@ import type {
     ScannerType,
     SecurityType,
     ShortSource,
+    SymbolHit,
     Snapshot,
     SseBidAsk,
     SseTick,
@@ -191,6 +192,10 @@ export class MarketManager implements MarketDataProvider, PriceFeed {
 
     volumes(key: ContractKey): Promise<VolumeLevel[]> {
         return this.active.volumes(key);
+    }
+
+    searchSymbols(query: string): Promise<SymbolHit[]> {
+        return this.active.searchSymbols(query);
     }
 
     scanner(
