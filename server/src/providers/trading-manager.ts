@@ -20,7 +20,11 @@ import type {
     Trade,
 } from '../types/dto.ts';
 import type { ContractKey, MarketClientSource } from './market-data.ts';
-import type { TradingCapabilities, TradingProvider } from './trading.ts';
+import type {
+    TradeFill,
+    TradingCapabilities,
+    TradingProvider,
+} from './trading.ts';
 
 // broker account APIs are aggressively rate-limited (fubon 「業務系統流量
 // 控管」, esun AGR0003/AGR0005) — the UI polls every 10s, so reads go
@@ -206,6 +210,17 @@ export class TradingManager implements TradingProvider {
 
     onOrderEvent(cb: (ev: OrderEventData) => void): void {
         this.eventCbs.push(cb);
+    }
+
+    // 反映「當前」provider 是否支援成交明細：不支援時回 undefined，讓
+    // 上層（投組 TWR）退回凍結組成；provider 內部已對歷史長 TTL 快取。
+    get tradeFills():
+        | ((startDate: string, endDate: string) => Promise<TradeFill[]>)
+        | undefined {
+        const active = this.active;
+        return active.tradeFills
+            ? (startDate, endDate) => active.tradeFills!(startDate, endDate)
+            : undefined;
     }
 
     marketdataSource(): MarketClientSource | null {

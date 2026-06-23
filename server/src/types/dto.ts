@@ -415,6 +415,23 @@ export interface PerfSeries {
     last_pct: number | null;
 }
 
+/** 投組 TWR 的逐檔明細（含期間內已平倉者），供核對 */
+export interface PerfHolding {
+    code: string;
+    name: string;
+    /** held = 現仍持有；closed = 期間內已全數平倉 */
+    status: 'held' | 'closed';
+    /** 期間內是否有買賣進出（非全程持股不變） */
+    traded: boolean;
+    /** 在分析窗內實際持有的起訖日 */
+    from: string;
+    to: string;
+    /** 該檔在持有期間的還原價報酬 %（個股自身表現，非加權貢獻） */
+    ret_pct: number | null;
+    /** 目前持股（股） */
+    shares: number;
+}
+
 export interface PerformanceResponse {
     /** mtd | 1m | 3m | 6m | ytd | 1y */
     period: string;
@@ -425,6 +442,8 @@ export interface PerformanceResponse {
     /** 投組所屬券商（trade provider 名，mock = 紙上交易） */
     broker: string;
     warnings: string[];
+    /** 逐檔明細（僅 TWR 重建路徑有；凍結組成時為 undefined） */
+    breakdown?: PerfHolding[];
 }
 
 export interface ServerWatchlist {

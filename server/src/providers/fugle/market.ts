@@ -799,6 +799,13 @@ export class FugleMarketDataProvider implements MarketDataProvider {
         string,
         { at: number; rows: DailyClose[] }
     >();
+    // 單一 chunk（symbol:from:to）的快取 — 歷史日線是靜態的，存久一點。
+    // 關鍵：限流下單次請求湊不齊全部 chunk，per-chunk 快取讓「已成功的段」
+    // 跨呼叫累積，下次只補抓缺的段 → 幾輪後必然收斂成完整，不會反覆重抓。
+    private candleChunkCache = new Map<
+        string,
+        { at: number; data: any[] }
+    >();
 
     async dailyCloses(
         key: ContractKey,
@@ -816,15 +823,62 @@ export class FugleMarketDataProvider implements MarketDataProvider {
         let raw: any[] = [];
         while (fromMs <= endMs) {
             const toMs = Math.min(fromMs + CHUNK_DAYS * 86_400_000, endMs);
-            const res = await this.rest.stock.historical.candles({
-                symbol,
-                timeframe: 'D',
-                sort: 'asc',
-                adjusted: true,
-                from: new Date(fromMs).toISOString().slice(0, 10),
-                to: new Date(toMs).toISOString().slice(0, 10),
+            const from = new Date(fromMs).toISOString().slice(0, 10);
+            const to = new Date(toMs).toISOString().slice(0, 10);
+            const chunkKey = `${symbol}:${from}:${to}`;
+            const cachedChunk = this.candleChunkCache.get(chunkKey);
+            if (cachedChunk && Date.now() - cachedChunk.at < 6 * 3_600_000) {
+                raw = raw.concat(cachedChunk.data);
+                fromMs = toMs + 86_400_000;
+                continue;
+            }
+            // 三種回應要分清楚，否則 ?? [] 會把「限流」也吞成空段 → 靜默缺資料：
+            //   • 合法陣列（含上市前的合法空陣列）→ 接受
+            //   • 404 Resource Not Found → 該標的此區間無資料（上市前/不存在）
+            //     → 視為空段，不重試不拋（新上市 ETF 的早期 chunk 會這樣）
+            //   • 其他（限流 429／網路）→ 退避重試，仍失敗才拋出讓上層排除＋警告
+            let chunk: any[] | undefined;
+            for (let attempt = 0; attempt < 4 && chunk === undefined; attempt++) {
+                let res: any;
+                try {
+                    res = await this.rest.stock.historical.candles({
+                        symbol,
+                        timeframe: 'D',
+                        sort: 'asc',
+                        adjusted: true,
+                        from,
+                        to,
+                    });
+                } catch (err) {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    res = {
+                        _err: msg,
+                        statusCode: /404|not found/i.test(msg) ? 404 : 0,
+                    };
+                }
+                const errText = String(res?._err ?? res?.message ?? '');
+                if (Array.isArray(res?.data)) {
+                    chunk = res.data as any[];
+                } else if (
+                    Number(res?.statusCode) === 404 ||
+                    /not found|找不到/i.test(errText)
+                ) {
+                    chunk = []; // 此區間查無此標的 → 空段
+                } else if (attempt === 3) {
+                    throw new Error(
+                        `historical ${symbol} ${from}~${to} 取得失敗（限流?）：${errText || '回應無 data'}`,
+                    );
+                } else {
+                    await new Promise((r) =>
+                        setTimeout(r, 800 * (attempt + 1)),
+                    );
+                }
+            }
+            this.candleChunkCache.set(chunkKey, {
+                at: Date.now(),
+                data: chunk ?? [],
             });
-            raw = raw.concat(res?.data ?? []);
+            raw = raw.concat(chunk ?? []);
             fromMs = toMs + 86_400_000;
         }
         const rows: DailyClose[] = [];

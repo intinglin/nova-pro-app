@@ -18,6 +18,17 @@ export interface TradingCapabilities {
     futures: boolean;
 }
 
+/** 區間內的一筆成交（買賣 fill），股數單位＝股。用於重建歷史每日持股算 TWR。 */
+export interface TradeFill {
+    /** 成交日 YYYY-MM-DD */
+    date: string;
+    code: string;
+    /** B=買進、S=賣出 */
+    side: 'B' | 'S';
+    /** 成交股數（股） */
+    shares: number;
+}
+
 export interface TradingProvider {
     init(): Promise<void>;
     capabilities(): TradingCapabilities;
@@ -44,6 +55,13 @@ export interface TradingProvider {
     ): Promise<PnlRow[]>;
 
     onOrderEvent(cb: (ev: OrderEventData) => void): void;
+
+    /**
+     * 區間內全部成交明細（買賣 fills），用於重建歷史每日持股以算真實
+     * 投組 TWR。只有部分券商實作（玉山）；未實作者投組報酬退回「凍結
+     * 組成」近似。startDate/endDate 為 YYYY-MM-DD。
+     */
+    tradeFills?(startDate: string, endDate: string): Promise<TradeFill[]>;
 
     /** broker SDKs that bundle market data expose it here (after init) */
     marketdataSource?(): MarketClientSource | null;

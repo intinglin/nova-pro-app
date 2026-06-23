@@ -36,6 +36,7 @@ import {
     FuturesNotSupportedError,
     TradeNotFoundError,
     zeroMargin,
+    type TradeFill,
     type TradingProvider,
 } from '../trading.ts';
 import {
@@ -486,4 +487,98 @@ export class EsunTradingProvider implements TradingProvider {
             .map(([date, pnl]) => ({ date, pnl }))
             .sort((a, b) => a.date.localeCompare(b.date));
     }
+
+    /**
+     * 區間內全部成交（買賣 fills）。玉山委託歷史單次上限 ~180 天 → 切窗
+     * loop；歷史是靜態的，用長 TTL 快取（10 分）避免重打撞速率限制。
+     * 只取真正成交的部分（matQtyShare > 0），未成交/取消的委託 matQtyShare=0
+     * 自動排除 — 這就是「成交」而非「委託」。
+     */
+    async tradeFills(startDate: string, endDate: string): Promise<TradeFill[]> {
+        const out: TradeFill[] = [];
+        let rawSeen = 0; // 委託歷史總筆數（防呆用）
+        let parsed = 0; // 其中欄位能正常解析出的筆數
+        for (const [s, e] of chunkWindows(startDate, endDate, 180)) {
+            // 重建必須「完整」— 缺一筆成交就會算錯（漏掉一筆買進→該檔被
+            // 當成全期持有而虛增報酬）。故撞速率限制就重試；重試仍失敗就
+            // 拋出，讓上層退回凍結組成並警告，絕不靜默用殘缺資料算錯 TWR。
+            // 玉山 OrderResult 限流嚴格（AGR0005）— 多給幾次、退避拉長，讓
+            // 一趟 tradeFills 的數個窗口自然錯開在限流額度內；成功即快取 600s。
+            let orders: EsunPlacedOrder[] | null = null;
+            for (let attempt = 0; attempt < 6 && orders === null; attempt++) {
+                try {
+                    orders = await this.cached(`hist:${s}:${e}`, 600_000, () =>
+                        this.sdk.getHistoricalOrders({
+                            startDate: s,
+                            endDate: e,
+                        }),
+                    );
+                } catch (err) {
+                    if (attempt === 5) {
+                        throw new Error(
+                            `委託歷史 ${s}~${e} 查詢失敗：${err instanceof Error ? err.message : err}`,
+                        );
+                    }
+                    await sleep(2500 * (attempt + 1));
+                }
+            }
+            for (const o of orders ?? []) {
+                rawSeen += 1;
+                const p = o.payload;
+                const code = String(p.stockNo ?? '');
+                const side =
+                    p.buySell === 'B' ? 'B' : p.buySell === 'S' ? 'S' : null;
+                // 認得出代碼或買賣別 = 欄位有正常解析（即使該筆未成交）
+                if (code || side) parsed += 1;
+                const shares = num(p.matQtyShare);
+                if (shares <= 0 || !side || !code) continue;
+                const date = isoFromYmd(p.ordDate);
+                if (!date) continue;
+                out.push({ date, code, side, shares });
+            }
+        }
+        // 防呆：有委託紀錄卻一筆欄位都解析不出 → 疑似 SDK 回傳格式異動
+        // （如改用全小寫鍵）。寧可拋出退回凍結組成＋明確警告，也不要靜默
+        // 回空陣列、被當成「這段沒交易」而算出看似 TWR 實為凍結的錯誤結果。
+        if (rawSeen > 0 && parsed === 0) {
+            throw new Error(
+                `委託歷史共 ${rawSeen} 筆但欄位全數解析不出（疑似 SDK 回傳格式異動）`,
+            );
+        }
+        return out;
+    }
+}
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** "YYYYMMDD" or "YYYY-MM-DD" → "YYYY-MM-DD"（拿不到回 ''） */
+function isoFromYmd(raw: string | undefined): string {
+    const s = String(raw ?? '');
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    const m = /^(\d{4})(\d{2})(\d{2})$/.exec(s);
+    return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+}
+
+/** 把 [start,end] 切成每段最多 maxDays 天的子窗（升冪），含端點。 */
+function chunkWindows(
+    start: string,
+    end: string,
+    maxDays: number,
+): [string, string][] {
+    const day = 86_400_000;
+    const startMs = Date.parse(start);
+    const endMs = Date.parse(end);
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs > endMs)
+        return [];
+    const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+    const out: [string, string][] = [];
+    let s = startMs;
+    while (s <= endMs) {
+        const e = Math.min(s + (maxDays - 1) * day, endMs);
+        out.push([iso(s), iso(e)]);
+        s = e + day;
+    }
+    return out;
 }

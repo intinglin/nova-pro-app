@@ -120,6 +120,13 @@ export interface EsunSdk {
         endDate?: string;
         duration?: string;
     }): Promise<Record<string, unknown>[]>;
+    // 委託歷史：含買賣兩方的成交股數（matQtyShare）+ ordDate + buySell，
+    // 是唯一能回溯「買進」成交的來源（getTransactions 只回已實現損益=賣出）。
+    // 單次上限 ~180 天，回溯約 3 年。
+    getHistoricalOrders(options: {
+        startDate: string;
+        endDate: string;
+    }): Promise<EsunPlacedOrder[]>;
 }
 
 export interface EsunMarketdataClient {

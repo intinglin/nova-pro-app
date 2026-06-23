@@ -21,6 +21,7 @@ import { OptionChain } from './components/option-chain';
 import { OrderTicket } from './components/order-ticket';
 import { ChipsCard } from './components/chips-card';
 import { PnlPanel } from './components/pnl-panel';
+import { PerfPanel } from './components/perf-panel';
 import { VolProfile } from './components/vol-profile';
 import { ReplayPanel } from './components/replay-panel';
 import { DepthMap } from './components/depth-map';
@@ -177,6 +178,8 @@ function BlockBody({
             );
         case 'pnl':
             return <PnlPanel />;
+        case 'perf':
+            return <PerfPanel />;
         case 'chips':
             return contract ? (
                 <ChipsCard contract={contract} />

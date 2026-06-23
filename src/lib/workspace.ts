@@ -12,6 +12,7 @@ export type BlockType =
     | 'tape'
     | 'flash'
     | 'pnl'
+    | 'perf'
     | 'chips'
     | 'volprofile'
     | 'optchain'
@@ -97,6 +98,12 @@ export const BLOCK_META: Record<
         pinnable: false,
         singleton: true,
         defaultSize: { w: 8, h: 8, minW: 6, minH: 6 },
+    },
+    perf: {
+        label: '投組比較',
+        pinnable: false,
+        singleton: true,
+        defaultSize: { w: 10, h: 10, minW: 6, minH: 6 },
     },
     chips: {
         label: '籌碼資訊',
