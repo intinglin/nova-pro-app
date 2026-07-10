@@ -269,7 +269,7 @@ export class FubonTradingProvider implements TradingProvider {
     /**
      * 富邦自帶行情。initRealtime 預設 Speed mode（不能訂 aggregates/
      * candles）— 一律明確帶 'normal'。makeWs 每次重新 initRealtime 換
-     * 新 token。限制：單連線 200 訂閱、同帳號 5 連線。
+     * 新 token。限制：單連線 300 訂閱、同帳號 7 連線。
      */
     marketdataSource(): MarketClientSource {
         return {
