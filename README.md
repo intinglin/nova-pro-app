@@ -1,4 +1,4 @@
-# Nova Pro — 專業交易終端 Trading Terminal
+# TaiTrader — 專業交易終端 Trading Terminal
 
 A professional, fully-customizable trading terminal for Taiwan markets
 (TWSE / TPEX / TAIFEX). Forked from
@@ -24,7 +24,7 @@ React 前端 ── HTTP REST + SSE ──► server/（Fastify）
 以專業交易終端為目標：即時行情、K 線、五檔、閃電下單、圖表點價下單、
 停損停利觸價單、可拖拉的自訂版面。
 
-![Nova Pro — 富果即時行情（試撮時段，注意試/處標記）](docs/screenshot-dark.png)
+![TaiTrader — 富果即時行情（試撮時段，注意試/處標記）](docs/screenshot-dark.png)
 
 | Dark | Light |
 |------|-------|
@@ -135,7 +135,7 @@ cp .env.example .env   # 填入金鑰；.env 已被 .gitignore 排除，請勿 c
   （注意各方案的 WebSocket 訂閱數與 REST rate limit）
 - **富邦交易**：開戶＋申請憑證後，從官網下載 `fubon-neo-<version>.tgz`
   放入 `server/vendor/`，執行
-  `pnpm --filter nova-pro-server add file:vendor/fubon-neo-<version>.tgz`，
+  `pnpm --filter taitrader-server add file:vendor/fubon-neo-<version>.tgz`，
   設 `TRADE_PROVIDER=fubon` 與 `BROKER_*` 四個變數
 - **台新 Nova 交易**：同上模式，SDK 為 `taishin-sdk-<version>.tgz`，
   設 `TRADE_PROVIDER=nova`。正式環境 API URL 已內建

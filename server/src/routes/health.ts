@@ -19,10 +19,10 @@ export function registerHealthRoutes(
     }));
 
     app.get('/api/v1/info', async (): Promise<ServerInfo> => ({
-        name: 'nova-pro-server',
+        name: 'taitrader-server',
         version: SERVER_VERSION,
         description:
-            'Nova Pro local server — trading via Fubon/Taishin SDK, market data via Fugle',
+            'TaiTrader local server — trading via Fubon/Taishin SDK, market data via Fugle',
         protocols: ['http', 'sse'],
         simulation:
             ctx.trading.name() === 'mock' || ctx.market.name() === 'mock',

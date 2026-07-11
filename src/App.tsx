@@ -1,4 +1,4 @@
-// src/App.tsx — Nova Pro trading terminal
+// src/App.tsx — TaiTrader trading terminal
 // Dynamic panel blocks on a draggable grid, with named layout profiles.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -667,7 +667,7 @@ export default function App() {
             <div className={grid.gridWrap} ref={containerRef}>
                 {booting && (
                     <div className={styles.loading}>
-                        <span>Nova Pro</span>
+                        <span>TaiTrader</span>
                         <span style={{ fontSize: '0.7rem' }}>
                             載入交易終端…
                         </span>

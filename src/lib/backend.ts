@@ -1,4 +1,4 @@
-// src/lib/backend.ts — REST client for the local nova-pro-server
+// src/lib/backend.ts — REST client for the local taitrader-server
 
 import { apiGet, apiPost, apiPut } from './api';
 import type {

@@ -100,7 +100,7 @@ async function main(): Promise<void> {
     const app = buildApp(ctx);
     await app.listen({ port: config.port, host: config.host });
     console.log(
-        `nova-pro-server listening on http://${config.host}:${config.port}` +
+        `taitrader-server listening on http://${config.host}:${config.port}` +
             ` (market=${market.name()}, trade=${trading.name()})`,
     );
 }
